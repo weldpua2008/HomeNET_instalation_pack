@@ -1,0 +1,502 @@
+<HTML><TITLE>greylink - разговорный бот</TITLE>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1251"/>
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
+<link rel="icon" href="favicon.ico" type="image/x-icon"/>
+</head>
+<BODY bgcolor=#808080>
+
+<center>Описание системы плагинов</center><hr>
+
+<p>К клиенту <b>greylink</b> возможно подключение внешних плагинов.
+Плагин должен быть оформлен в виде DLL c именем <b>ChatBot.dll</b> и экспортировать функцию
+<i>bot_init</i> со следующей спецификацией:<pre>
+extern "C" __declspec(dllexport) bool __stdcall bot_init(BotInit* _init)</pre>
+где структура BotInit описывается так:
+<pre>
+struct BotInit
+{
+        typedef bool (__stdcall * tInit)(struct BotInit *);
+
+        typedef bool (__stdcall * tSendMessage)(int msgid, const WCHAR* objid, const void* param, unsigned paramsize);
+        typedef bool (__stdcall * tRecvMessage)(int msgid, const WCHAR* objid, const void* param, unsigned paramsize);
+
+        typedef void*(__stdcall * tQueryInfo)(int queryid, const WCHAR* objid, const void *param, unsigned paramsize);
+        typedef void (__stdcall * tFreeInfo)(void *info);
+
+        DWORD apiVersion;
+        WCHAR* appName;
+        WCHAR* appVersion;
+        tSendMessage SendMessage;
+        tQueryInfo QueryInfo;
+        tFreeInfo FreeInfo;
+
+        DWORD botApiVersion;
+        WCHAR* botId;
+        WCHAR* botVersion;
+        WCHAR* botCopyright;
+        tRecvMessage RecvMessage;
+        DWORD eventMask; // v3
+
+        enum SEND_CODES {
+                SEND_PM         = 0,
+                SEND_SIM_PM     = 1,
+                SEND_CM         = 2,
+                SEND_SIM_CM     = 3,
+                SEND_CLOSE      = 4,
+                SEND_PRIVMODE   = 5,
+                SEND_BAN        = 6,
+                SEND_SLOT       = 7,
+                SEND_DL_MAGNET  = 8,
+                SEND_SEARCH     = 9,  // v3
+                SEND_SYSLOG_MSG = 10, // v3
+                SEND_DL_FILELIST= 11, // v4
+                SEND_DL_PING    = 12, // v4
+                SET_RECV_EVENTS = 20  // v3
+        };
+
+        enum RECV_CODES {
+                RECV_COMMAND        = 40,
+                RECV_PM             = 41,
+                RECV_CM             = 42,
+                RECV_USER_UPDATE    = 43,
+                RECV_USER_PART      = 44,
+                RECV_HUB_CONNECT    = 45,
+                RECV_HUB_DISCONNECT = 46,
+                RECV_PM_DROPPED     = 47,
+                RECV_SEARCH_QUERY   = 48, // v3
+                RECV_SEARCH_RESULT  = 49, // v3
+                RECV_DL_FINISHED    = 50, // v4
+        };
+
+        enum QUERY_CODES {
+                QUERY_USER_BY_UID       = 80,
+                QUERY_HUB_BY_URL        = 81,
+                QUERY_CONNECTED_HUBS    = 82,
+                QUERY_HUB_USERS         = 83,
+                QUERY_RUNNING_UPLOADS   = 84,
+                QUERY_QUEUED_UPLOADS    = 85,
+                QUERY_DOWNLOADS         = 86,
+                QUERY_SELF              = 87
+        };
+
+        enum PrivateAccessMode {
+                PM_NORMAL       = 0,
+                PM_SKIPPASSWORD = 1,
+                PM_IGNORE       = 2,
+                PM_HARDIGNORE   = 3
+        };
+
+        // for SEND_SEARCH:
+        struct SearchParams {
+                int searchContent; // enum SearchTypeModes
+                int sizeMode; // enum SearchSizeModes
+                unsigned __int64 size;
+        };
+        enum SearchTypeModes {
+                TYPE_ANY = 0,
+                TYPE_AUDIO,
+                TYPE_COMPRESSED,
+                TYPE_DOCUMENT,
+                TYPE_EXECUTABLE,
+                TYPE_PICTURE,
+                TYPE_VIDEO,
+                TYPE_DIRECTORY,
+                TYPE_TTH
+                ,TYPE_CD_IMAGE
+        };
+        enum SearchSizeModes {
+                SIZE_DONTCARE = 0x00,
+                SIZE_ATLEAST = 0x01,
+                SIZE_ATMOST = 0x02,
+                SIZE_EXACT = 0x03
+        };
+
+        // for SET_RECV_EVENTS
+        enum EventFlags {
+                F_RECV_COMMAND        = 1 << 0,
+                F_RECV_PM             = 1 << 1,
+                F_RECV_CM             = 1 << 2,
+                F_RECV_USER_UPDATE    = 1 << 3,
+                F_RECV_USER_PART      = 1 << 4,
+                F_RECV_HUB_CONNECT    = 1 << 5,
+                F_RECV_HUB_DISCONNECT = 1 << 6,
+                F_RECV_PM_DROPPED     = 1 << 7,
+                F_RECV_SEARCH_QUERY   = 1 << 8,
+                F_RECV_SEARCH_RESULT  = 1 << 9,
+                F_RECV_DL_FINISHED    = 1 << 10
+        };
+
+        // for SEND_DL_FILELIST, v5
+        struct DlFileListParams {
+                int flags; // enum DlFileListFlags
+        };
+
+        enum DlFileListFlags { // v5
+                F_DL_FILELIST_OPEN    = 1,
+                F_DL_FILELIST_MATCH   = 2,
+                F_DL_FILELIST_CHECK   = 4
+
+        };
+};</pre>
+Функция плагина <i>bot_init</i> анализирует поля
+<i>apiVersion</i>, <i>appName</i>, <i>appVersion</i>.
+Если плагин умеет работать с данным клиентом и
+данной версией API, плагин заполняет поля
+<i>botApiVersion</i>, <i>botId</i>, <i>botVersion</i>, <i>botCopyright</i>,
+<i>RecvMessage</i> и возвращает <i>true</i>.
+Иначе <b>greylink</b> выгружает DLL.
+
+<p/>В поле <i>botApiVersion</i> плагин указывает предпочтительную
+версию API (если клиент поддерживает несколько версий API, он
+может переключится на версию, запрошенную плагином). Текущая версия API: 5
+
+<p/>Для версии API 3 и выше, плагин должен заполнить поле <i>eventMask</i>,
+если хочет получать сообщения о событиях
+(в любой момент список событий можно изменить вызовом <i>SendMessage</i> с msgid=<i>SET_RECV_EVENTS</i>)
+
+<br/>
+<br/>
+<center>Функция <b><i>SendMessage</i></b></center>
+<p/>Используется плагином для управления клиентом.
+
+<table width=100% border=1>
+<tr><td width=20%><b>Параметры функции</b></td><td><b>Описание</b></td></tr>
+
+<tr><td width=20%>
+msgid = SEND_PM<br/>
+objid = UID<br/>
+param = message
+</td><td>
+Отослать личное сообщение с содержимым message пользователю с кодом UID
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_SIM_PM<br/>
+objid = UID<br/>
+param = message
+</td><td>
+Имитировать приём личного сообщения с содержимым message от пользователя с кодом UID
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_СM<br/>
+objid = UID<br/>
+param = huburl
+</td><td>
+Отослать сообщение с содержимым message в общий чат хаба huburl
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_SIM_CM<br/>
+objid = huburl<br/>
+param = message
+</td><td>
+Имитировать приём сообщения с содержимым message в чат хаба huburl. Сообщение должно иметь вид<br/>
+<b>&lt;НИК&gt; сообщение...</b>
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_CLOSE<br/>
+objid = UID<br/>
+param = message
+</td><td>
+Закрыть окно приватного чата с юзером UID
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_PRIVMODE<br/>
+objid = UID<br/>
+param = &amp;mode<br/>
+paramsize = 1
+</td><td>
+Установить уровень доступа в личку для юзера с кодом UID. Код уровня доступа
+описан в перечислении <i>PrivateAccessMode</i>
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_BAN<br/>
+objid = UID<br/>
+param = &amp;isBanned<br/>
+paramsize = 1
+</td><td>
+Включить или выключить бан юзера с кодом UID
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_SLOT<br/>
+objid = UID<br/>
+param = &amp;time<br/>
+paramsize = 4
+</td><td>
+Дать пользователю экстра-слот на <i>time</i> секунд. При <i>time</i>=0
+резервирование слота немедленно снимается (соединение не прерывается,
+для кика используйте бан+разбан)
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_DL_MAGNET<br/>
+objid = magnet link<br/>
+param = target<br/>
+</td><td>
+Поставить магнет-ссылку на закачку. Если <i>paramsize</i>=0, закачиваем в download-каталог по умолчанию,
+иначе из (WCHAR*)<i>param</i> берём полный путь+имя файла
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_SEARCH<br/>
+objid = search string<br/>
+param = struct SearchParams<br/>
+</td><td>
+Поставить поисковый запрос в очередь. При param == NULL, objid - строка: слова для поиска, разделенные пробелами.
+Если SearchParams::searchContent == SearchTypeModes::TYPE_TTH, то objid - TTH в строковом виде без лишних префиксов.
+</td></tr>
+
+<tr><td width=20%>
+msgid = SET_RECV_EVENTS<br/>
+param = &mask<br/>
+paramsize = 4<br/>
+</td><td>
+Определяет, какие события передаются в RecvMessage. В зависимости от значения
+поля <i>botApiVersion</i>, указанного плагином в <i>bot_init</i>, настраивается
+начальное значение маски (для v1,v2 - все сообщения, поддерживаемые этими версиями
+API, для v3 и выше начальное значение маски 0, плагин должен установить список
+событий, на которые приходят оповещения. Флаги для <i>mask</i> нужно брать из
+enum <i>EventFlags</i>)
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_SYSLOG_MSG<br/>
+objid = message<br/>
+</td><td>
+Посылает строку в системный лог (также отображается в строке статуса главного окна программы)
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_DL_FILELIST<br/>
+objid = UID<br/>
+param = DlFileListParams<br/>
+paramsize = 4 (если paramsize=0, для совместимости с API v4 используется флаг F_DL_FILELIST_OPEN)<br/>
+</td><td>
+Начинает скачку файл-листа пользователя.<br/>
+Флаги в DlFileListParams определяют действия после загрузки файл-листа:<br/>
+F_DL_FILELIST_OPEN: открыть файл-лист для просмотра,<br/>
+F_DL_FILELIST_MATCH: добавить юзера в источники, если в файл-листе есть файлы из очереди закачки,<br/>
+F_DL_FILELIST_CHECK: проверить содержимое через правила ADL-поиска
+</td></tr>
+
+<tr><td width=20%>
+msgid = SEND_DL_PING<br/>
+objid = UID<br/>
+</td><td>
+Соединяется с пользователем, но ничего не скачивает
+(Определение IP-адреса, через некоторое время адрес можно получить функцией QUERY_USER_BY_UID)
+</td></tr>
+
+</table>
+
+Функция <i>SendMessage</i> может быть вызвана плагином из любого потока
+в любое время после возврата из bot_init и до выгрузки DLL плагина
+
+<br/>
+<br/>
+<center>Функции <b><i>QueryInfo</i></b> и <b><i>FreeInfo</i></b></center>
+<p/>Используются плагином для запроса информации. Результат <i>QueryInfo</i> - UTF-16 строка,
+завершаемая кодом 0; или NULL, если запрос составлен ошибочно или нет данных.
+Память освобождается функцией <i>FreeInfo</i>.
+<p/>Если запрос должен вернуть несколько значений, результируюшая строка имеет вид:</br>
+<pre>Параметр1=Значение1|Параметр2=Значение2|Параметр3=Значение3|</pre>
+
+<p/>В строках символы | и \ кодируются соответственно сочетаниями \| и \\
+<p/>В случаях, когда функция возвращает несколько блоков параметров (QUERY_DOWNLOADS и т.п.),
+блоки разделяются дополнительным символом |
+
+
+<p/>*<i> Если param и paramsize не описаны, они должны быть NULL и 0 соответственно</i>
+<table width=100% border=1>
+<tr><td width=20%><b>Параметры функции</b><br/></td><td><b>Описание</b></td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_USER_BY_UID<br/>
+objid = UID<br/>
+</td><td>
+Запросить данные пользователя по его UID. Значения выходных параметров описаны ниже
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_HUB_BY_URL<br/>
+objid = huburl<br/>
+</td><td>
+Запросить данные хаба по его url. Выходные параметры:<br/>
+URL,NAME,DESC,IP,PORT,ME
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_CONNECTED_HUBS<br/>
+</td><td>
+Возвращает список URL подключенных хабов
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_HUB_USERS<br/>
+objid = huburl<br/>
+</td><td>
+В данной версии API не реализовано, плагин может самостоятельно отслеживать актуальный список
+юзеров, используя сообщения RECV_USER_UPDATE и RECV_USER_PART
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_RUNNING_UPLOADS<br/>
+objid = UID<br/>
+</td><td>
+Текущие отдачи. Поля: UID,FILENAME,FILESIZE,POS, REASON (значок-причина получения слота)
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_QUEUED_UPLOADS<br/>
+objid = UID<br/>
+</td><td>
+Получить очередь ждущих юзеров (если objid=NULL), либо список файлов, который ожидает юзер UID
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_DOWNLOADS<br/>
+objid = UID<br/>
+</td><td>
+Получить данные из очереди закачки. Если objid!=NULL, выдаются только файлы,
+в источниках для которых есть указанный юзер
+</td></tr>
+
+<tr><td width=20%>
+queryid = QUERY_SELF<br/>
+</td><td>
+Не документировано. (Новые возможности, где эта информация была бы полезна, не дописаны)
+</td></tr>
+
+</table>
+
+<center>Функция <b><i>RecvMessage</i></b></center>
+<p/>Адрес своей функции RecvMessage плагин записывает в структуру <i>BotInit</i>,
+greylink через эту функцию оповещает плагин о различных событиях.
+Параметры RecvMessage не должны модифицироваться. Если событие обработано
+плагином, RecvMessage возвращает true, иначе - false
+<br/>
+
+<table width=100% border=1>
+<tr><td width=20%><b>Параметры функции</b><br/></td><td><b>Описание</b></td></tr>
+
+<tr><td width=20%>
+queryid = RECV_COMMAND<br/>
+objid = NULL<br/>
+param = command
+</td><td>
+Пользователь набрал команду<pre>/bot command</pre>
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_PM<br/>
+objid = UID<br/>
+param = message
+</td><td>
+Пришло ЛС от юзера UID.
+Если плагин вернул true, сообщение не показывается пользователю.
+Изменённое сообщение плагин может передать через SEND_SIM_PM.
+Сообщения, посланные плагином через SEND_SIM_PM, не приходят в RECV_PM
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_CM<br/>
+objid = huburl<br/>
+param = message
+</td><td>
+Пришло сообщение в чат хаба huburl. Ник юзера может быть получен из
+текста сообщения по шаблонам:<br/>
+&lt;<b>НИК</b>&gt; Сообщение<br/>
+* <b>НИК</b> Сообщение<br/>
+Если плагин вернул true, сообщение не показывается пользователю.
+Изменённое сообщение плагин может передать через SEND_SIM_CM.
+Сообщения, посланные плагином через SEND_SIM_CM, приходят в RECV_CM,
+но не должны обрабатываться, так как в новых версиях API они
+могут не передаваться в RECV_CM
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_USER_UPDATE<br/>
+objid = UID
+</td><td>
+Юзер зашёл на хаб или обновил свои данные (размер шары, кол-во слотов, примечание и т.п.)
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_USER_PART<br/>
+objid = UID
+</td><td>
+Юзер ушёл с хаба
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_HUB_CONNECT<br/>
+objid = huburl
+</td><td>
+Подключен хаб huburl
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_HUB_DISCONNECT<br/>
+objid = huburl
+</td><td>
+Отключен хаб huburl
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_PM_DROPPED<br/>
+objid = UID<br/>
+param = message
+</td><td>
+Проигнорировано сообщение пользователя (на пользователе игнор или включена защита паролем). Если плагин считает, что сообщение важное, он может повторить его через SEND_SIM_PM
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_SEARCH_QUERY<br/>
+objid = search string<br/>
+param = доп. параметры
+</td><td>
+От юзера поступил запрос на поиск. В objid указана строка запроса, либо, при поиске по TTH, строка "TTH:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".<br/>
+В параметрах есть поля USER (ip или Ник при пассивном поиске), HIT (найден в шаре: 0 = нет, 2 = да, 1 = я частичный источник)
+</td></tr>
+
+<tr><td width=20%>
+queryid = RECV_SEARCH_RESULT<br/>
+objid = TTH<br/>
+param = доп. параметры
+</td><td>
+От юзера пришёл ответ на поиск. В дополнительных параметрах
+указывается: FILE (имя файла с путём в шаре), SIZE (размер файла),
+UID, CID, IP, HUBURL (юзера), SLOTS, FREE (слоты юзера: всего/свободно),
+TYPE (тип результата: файл/каталог/неполный источник).
+</td></tr>
+
+
+<tr><td width=20%>
+queryid = RECV_DL_FINISHED<br/>
+objid = UID<br/>
+param = полный путь к файлу
+</td><td>
+Завершено скачивание файла / файл-листа. Если мультискачка, то objid = UID юзера, с которого скачался последний сегмент<br/>
+</td></tr>
+
+</table>
+
+<br/><hr/>
+<center>История версий API</center>
+<hr/>
+
+<a name='v2'/>
+<p/><b><i>API v2</i></b>: В запрос QUERY_HUB_BY_URL добавлен выходной параметр ME - UID себя на выбранном хабе
+<p/><b><i>API v3</i></b>: Команды управления поиском: SEND_SEARCH, RECV_SEARCH_QUERY, RECV_SEARCH_RESULT.<br/>
+Добавлены системные команды SEND_SYSLOG_MSG, SET_RECV_EVENTS
+<p/><b><i>API v4</i></b>: Команды скачивания файл-листа и оповещения о завершении закачки: SEND_DL_FILELIST, SEND_DL_PING, RECV_DL_FINISHED.<br/>
+<p/><b><i>API v5</i></b>: Возможно указать параметры для SEND_DL_FILELIST (структура DlFileListParams)<br/>
+
+
+</BODY></HTML>

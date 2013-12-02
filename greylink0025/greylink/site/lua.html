@@ -1,0 +1,136 @@
+<HTML><TITLE>greylink - LUA-скрипты</TITLE>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1251"/>
+<link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
+<link rel="icon" href="favicon.ico" type="image/x-icon"/>
+</head>
+<BODY bgcolor=#808080>
+<center>Расширение возможностей клиента с помощью скриптов</center>
+<hr/>
+
+<p/>Создание надстроек в виде DLL оказалось для многих пользователей
+недоступным, поэтому сделана попытка подружить клиент с простым, но
+очень мощным скриптовым языком <b>LUA</b>
+(Подробнее: <a href="http://www.lua.org">www.lua.org</a>, <a href="http://lua.ru">lua.ru</a>)
+
+<p/>Планируется, что c помощью скриптов будут реализоватся самые изысканые
+запросы (например, замысловатые условия авто-банов, управление скоростями закачек).
+
+<p/>На данный момент реализован необходимый минимум для
+создания "разговорного" бота, но система комманд будет расширяться.
+
+<br/><br/>
+<center>Общие положения</center>
+<ul>
+<li>LUA-интерпретатор <b>lua32.dll</b> при старте клиента должен находится в подкаталоге <b>lua</b> основного каталога клиента (<a href="bin/lua.rar">скачать</a>)</li>
+<li>Пользовательские расширения LUA-интерпретатора должны быть оформлены в виде dll и находиться в одном каталоге с <b>lua32.dll</b>
+<li>Все скрипты должны находиться в подкаталоге <b>Scripts</b> основного каталога клиента</li>
+<li>При загрузке клиента происходит автозапуск файла <b>startup.lua</b>, если он существует</li>
+<li>Выполнить произвольную lua-команду можно, введя <b>/lua <i>lua-выражение</i></b> в окне приватного или общего чата</li>
+<li>Выполнить lua-скрипт из файла можно, введя <b>/luafile <i>script.lua</i></b> в окне приватного или общего чата</li>
+</ul>
+
+<p/>Подробное руковоство находится в процессе написания,
+ниже будут даны лишь краткие комментарии к функциям
+скрипта. Представление о приёмах программирования в LUA можно
+получить, изучив скрипты к хаб-ботам (Robocop, HUBBA-BOT)
+
+
+<br/><br/>
+<center>Вызов системных функций клиента</center>
+
+<p/>Функция <b>DC()</b> вернёт таблицу, в которой зарегистрированы
+сервисные функции клиента <b>greylink</b>. Пока доступны следующие функции:
+<ul>
+<li>SendPrivateMessage(uid, message)</li>
+<li>SendPublicMessage(huburl, message)</li>
+<li>SimPrivateMessage(uid, message)</li>
+<li>SimPublicMessage(huburl, message)</li>
+<li>GetUsers(huburl)</li>
+<li>GetUserInfo(uid)</li>
+<li>GetList(uid, mode)
+<br/><font color="#404040">-- числовой параметр mode аналогичен <a href="chatbot.html">BotInit::DlFileListFlags</a></font></li>
+<li>SetExtraSlot(uid, s)
+<br/><font color="#404040">-- дать слот на <b>s</b> секунд. При <b>s</b>=0 убирается экстра-слот, но соединение не разрывается</font></li>
+<li>RunTimer(enabled)
+<br/><font color="#404040">-- 1 - включение таймера, 0 - выключение</font></li>
+<li>PrintDebug(message)</li>
+<li>GetSetting(key)</li>
+<li>ToUtf8(str)</li>
+<li>FromUtf8(str)</li>
+<li>GetAppPath()</li>
+<li>MessageBox(text, title, "yesno", "question")</li>
+<li>Beep(frequency, duration)</li>
+</ul>
+
+<p/>Примеры вызова из строки ввода чата:
+<pre>
+/lua DC():PrintDebug("this goes to client system log")
+/lua DC():MessageBox(DC():GetSetting("LanguageFile"), DC():GetAppPath(), "ok", "warning")
+</pre)
+
+<br/>
+<p/>При выполнении команд <b>/lua</b> и <b>/luafile</b> в глобальных переменных
+<b>dc_huburl</b> и <b>dc_uid</b> будут записаны параметры хаба и пользователя,
+из чата которых выполняется команда. Чтобы отличить запуск скрипта из чата хаба
+от запуска из приватного чата, можно использовать такое условие:
+if (DC():GetUserInfo(dc_uid).ME == "1") then hub
+
+<br/><br/>
+<center>Передача скрипту сообщений о событиях</center>
+<p/>Скрипт должен создать таблицу с именем <b>dcpp</b>
+и в ней определить функции:
+<ul>
+<li>OnHubConnected(huburl)
+<br/>Хаб подключен</li>
+<li>OnHubDisconnected(huburl)
+<br/>Хаб отключен</li>
+<li>OnUserUpdated(uid)
+<br/>Юзер передал $MyInfo (BINF) - пришёл на хаб или обновил параметры</li>
+<li>OnUserDisconnected(uid)
+<br/>Юзер ушёл с хаба</li>
+<li>OnPublicMessage(uid, msg)
+<br/>приём сообщения от юзера в общий чат. хаб может быть выбран из uid юзера фунцией GetUserInfo</li>
+<li>OnStatusMessage(huburl, msg)
+<br/>приём системного сообщения хаба</li>
+<li>OnPrivateMessage(uid, msg)
+<br/>приём личного сообщения от юзера</li>
+<li>OnDownloadFinished(path, uid)
+<br/>завершена скачка файла path. uid - источник файла или источник последнего сегмента, в случае мультискачки</li>
+<li>PreviewPublicMessage(huburl, msg) / PreviewPrivateMessage(uid, msg)
+<br/>Проверка сообщения перед отправкой в общий/приватный чат
+<br/>Функция возвращает 0 (nil), если не вмешивается в передачу сообщения,
+<br/>возвращает 1, чтобы отменить посылку сообщения (возможно, с последующей посылкой
+<br/>исправленного сообщения функциями SendPublicMessage / SendPrivateMessage),
+<br/>или возвращает 2, чтобы отменить посылку сообщения без очистки строки ввода сообщения
+<li>OnTimer()
+<br/>Вызывается раз в секунду после DC():RunTimer(1)</li>
+</ul>
+
+<br/><br/>
+<center>Примеры</center>
+
+<p/><b>sample1.lua</b>
+<br/>Бот - повторялка (только в личке)
+<br/>Запустить можно командой <b>/luafile sample1.lua</b>
+<br/><br/>
+
+<p/><b>sample2.lua</b>
+<br/>Бот - перекидывает все обращения из лички в общий чат
+<br/><br/>
+
+<p/><b>sample3.lua</b>
+<br/>Считывает файл Favorites.xml и выводит случайно выбранную строку в чат хаба 127.0.0.1
+<br/><br/>
+
+<p/><b>sample4.lua</b>
+<br/>Замена "graylink" на "greylink" во всех отправляемых сообщениях. Запрет отправки строки "fly"
+<br/><br/>
+
+<p/><b>spam.lua</b>
+<br/>Бот - пишет с заданным периодом спам в общий чат заданного хаба
+<br/>Для загрузки бота используется команда <b>/luafile spam.lua</b>
+<br/><br/>
+
+
+</BODY></HTML>

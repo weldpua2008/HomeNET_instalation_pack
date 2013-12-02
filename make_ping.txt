@@ -1,0 +1,2 @@
+C:\WinBinder\binaries\php51
+http://www.interface.ru/home.asp?artId=10441

@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Favorites>
+	<Hubs>
+		<Hub Name="Хаб Home-NET" Connect="1" Description="" Password="" Server="homenet.skyhome" Encoding="Russian_Russia.1251" LastOnline="1245079721">
+			<Settings>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+		</Hub>
+		<Hub Name="Хаб Skyhome (inet)" Connect="0" Description="" Password="" Server="91.203.143.3" Encoding="Russian_Russia.1251" LastOnline="1245131322">
+			<Settings>
+				<IncomingConnections type="int">3</IncomingConnections>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+		</Hub>
+	<Hub Name="Хаб Fobos" Connect="1" Description="" Password="" Server="fobos.skyhome:4012" Encoding="Russian_Russia.1251" LastOnline="1261936961">
+			<Settings>
+				<HubWindowPos type="string">73,73,1203,429</HubWindowPos>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+	</Hub>
+	<Hub Name="Хаб Fobos(local) старый" Connect="0" Description="" Password="" Server="hub.city.lan:4012" Encoding="Russian_Russia.1251" LastOnline="1258308997">
+			<Settings>
+				<HubWindowPos type="string">146,146,1276,502</HubWindowPos>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+	</Hub>
+	<Hub Name="Хаб Skyhome " Connect="1" Description="" Password="" Server="hub.skyhome" Encoding="Russian_Russia.1251" LastOnline="1261936961">
+			<Settings>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+	</Hub>
+		<Hub Name="Интернет Хаб [Киевнет] (работает через Интернет!!!)" Connect="0" Description="" Password="" Server="hub.net.ua" Encoding="Russian_Russia.1251" LastOnline="0">
+			<Settings>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+		</Hub>
+		<Hub Name="Интернет Хаб [ihub] (работает через Интернет!!!)" Connect="0" Description="" Password="" Server="dc.ihub.org.ua" Encoding="Russian_Russia.1251" LastOnline="1274526257">
+			<Settings>
+				<HubWindowPos type="string">23,23,1153,354</HubWindowPos>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+		</Hub>
+		<Hub Name="Интернет Хаб [•Perspective• Kрым]" Connect="0" Description="" Password="" Server="sim.sytes.net" Encoding="Russian_Russia.1251" LastOnline="0">
+			<Settings/>
+		</Hub>
+		<Hub Name="Интернет Хаб [Слобода] (много народу)" Connect="0" Description="" Password="" Server="hubsergdc.ukroffice.com" Encoding="Russian_Russia.1251" LastOnline="1274526563">
+			<Settings>
+				<ChatUserSplit type="int">7500</ChatUserSplit>
+			</Settings>
+		</Hub>
+		<Hub Name="Интернет Хаб [Триолан]" Connect="0" Description="" Password="" Server="dc.triolan.ua" Encoding="Russian_Russia.1251" LastOnline="0">
+			<Settings/>
+		</Hub>
+		<Hub Name="Интернет Хаб [Харьковский]" Connect="0" Description="" Password="" Server="dc.dcworld.com.ua" Encoding="Russian_Russia.1251" LastOnline="0">
+			<Settings/>
+		</Hub>
+		<Hub Name="Интернет  Хаб провайдера Ланет" Connect="0" Description="" Password="" Server="hub.lanet.kiev.ua" Encoding="Russian_Russia.1251" LastOnline="0">
+			<Settings>
+			</Settings>
+		</Hub>
+	</Hubs>
+
+	<Users/>
+	<UserCommands/>
+	<FavoriteDirs/>
+</Favorites>
